@@ -165,7 +165,7 @@ pipeline {
           namespace: "${env.NAMESPACE}",
           image: "${env.IMAGE}",
           tag: "${env.TAG}",
-          credentials: "${env.REDCREDS}"
+          credentials: "${env.REGCREDS}"
         )
       }
       post {
