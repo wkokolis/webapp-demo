@@ -30,7 +30,7 @@ pipeline {
     stage('Terraform service') {
       agent {
         docker {
-          image 'terazo/terraform-jenkins-worker:'
+          image 'terazo/terraform-jenkins-worker:1.0.1'
           args '-v /opt/jenkins/workspace:/var/jenkins-home/workspace'
           registryCredentialsId 'terazo-dockerhub'
           reuseNode true
