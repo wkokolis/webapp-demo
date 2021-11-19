@@ -17,6 +17,7 @@ pipeline {
     NAMESPACE			= 'wkokolis'
     MAILTO			= 'william@kokolis.net'
     ENVIR                       = "${params.ENVIR}"
+    KUBECONFIG			= "./${params.ENVIR}-config"
   }
 
   parameters {
