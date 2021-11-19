@@ -6,6 +6,7 @@ pipeline {
 
     // basic variables
     NAMESPACE			= 'wkokolis'
+    REGCREDS			= 'wkokolis-dockerhub'
     MAILTO			= 'william@kokolis.net'
     DEPLOYJOB			= 'webapp-demo/Deploy-webapp'
 
@@ -163,7 +164,8 @@ pipeline {
         pushImage(
           namespace: "${env.NAMESPACE}",
           image: "${env.IMAGE}",
-          tag: "${env.TAG}"
+          tag: "${env.TAG}",
+          credentials: "${env.REDCREDS}"
         )
       }
       post {
