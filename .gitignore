@@ -1,0 +1,7 @@
+## Python & editor cruft
+__pycache__
+.pytest_cache
+**/*.swp
+
+## Terraform
+**/*.terraform*

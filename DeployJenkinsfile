@@ -1,0 +1,102 @@
+pipeline {
+  agent any
+
+  options {
+    buildDiscarder(logRotator(numToKeepStr: '10'))
+    timeout(time: 30, unit: 'MINUTES')
+  }
+
+  environment {
+    def scmVars 		= checkout scm
+    AWS_ACCESS_KEY_ID     	= credentials("${params.ENVIR}-aws-access-key")
+    AWS_SECRET_ACCESS_KEY 	= credentials("${params.ENVIR}-aws-secret-key")
+    AWS_DEFAULT_REGION    	= 'us-east-1'
+    AWS_DEFAULT_OUTPUT    	= 'json'
+    IMAGE			= 'cicd-demo'
+    SERVICE			= "${env.IMAGE}"
+    NAMESPACE			= 'wkokolis'
+    MAILTO			= 'william@kokolis.net'
+    ENVIR                       = "${params.ENVIR}"
+  }
+
+  parameters {
+    string(name: 'TAG', defaultValue: 'v1.0.0', description: 'Version to deploy')
+    string(name: 'COUNT', defaultValue: '2', description: 'Number of replicas')
+    choice(name: 'ACTION', choices: 'deploy\nvalidate\ndelete', description: 'What action should be taken')
+    choice(name: 'ENVIR', choices: 'demo\nprod', description: 'Which environment are we targeting?')
+  }
+  
+  stages {
+    stage('Terraform service') {
+      agent {
+        docker {
+          image 'terazo/terraform-jenkins-worker:'
+          args '-v /opt/jenkins/workspace:/var/jenkins-home/workspace'
+          registryCredentialsId 'terazo-dockerhub'
+          reuseNode true
+        }
+      }
+      stages {
+        stage('Fetch cluster configuration') {
+          steps {
+            sh """
+              aws eks update-kubeconfig --name ${params.ENVIR}-ops-Kubernetes --kubeconfig ${params.ENVIR}-config
+            """
+          }
+        }
+        stage('Validate plan') {
+          when {
+            expression { params.ACTION == 'validate' }
+          }
+          steps {
+            validateKubeTf(
+              environment: "${params.ENVIR}",
+              tag: "${params.TAG}",
+              vars: "replicas=${params.COUNT}"
+            )
+          }
+        }
+        stage('Apply plan') {
+          when {
+            expression { params.ACTION == 'deploy' }
+          }
+          steps {
+            applyKubeTf(
+              environment: "${params.ENVIR}",
+              tag: "${params.TAG}",
+              vars: "replicas=${params.COUNT}"
+            )
+          }
+        }
+        stage('Destroy plan') {
+          when {
+            expression { params.ACTION == 'delete' }
+          }
+          steps {
+            destroyKubeTf(
+              environment: "${params.ENVIR}",
+              tag: "${params.TAG}",
+              vars: "replicas=${params.COUNT}"
+            )
+          }
+        }
+      }
+    }
+  }
+
+  post {
+    failure {
+      emailext (
+        attachmentsPattern: "${env.SERVICE}-failure.txt",
+        attachLog: true,
+        subject: "FAILURE: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'",
+        body: "${currentBuild.currentResult}: Job ${env.JOB_NAME} build ${env.BUILD_NUMBER}\n More info at: ${env.BUILD_URL}",
+        to: "${env.MAILTO}"
+      )
+    }
+    cleanup {
+      cleanWs()
+    }
+  }
+}
+
